@@ -171,7 +171,7 @@
     <p class="subtitle">This website is blocked during your Pomodoro session</p>
     
     <div class="timer-section">
-      <div class="timer" id="timer">00:00</div>
+      <div class="timer" id="timer">25:00</div>
       <div class="timer-label">Time Remaining</div>
     </div>
     
@@ -185,39 +185,80 @@
       Use this time productively. The blocked content will be available after your focus session completes.
     </p>
     
-    <button class="button" id="checkStatus">Check Status</button>
+    <button class="button" id="refreshPage">Try Again</button>
   </div>
 
   <script>
-    // Update timer display every second
-    function updateTimer() {
-      try {
-        chrome.runtime.sendMessage({ type: 'getTimerStatus' }, function(response) {
-          if (chrome.runtime.lastError) {
-            // If we can't communicate with background, show a message
-            document.getElementById('timer').textContent = '00:00';
-            document.getElementById('status').innerHTML = 
-              '<strong>Session may have ended</strong><br>Try refreshing or accessing the website again.';
-            return;
-          }
+    let updateInterval;
+    
+    // Function to get timer status from storage directly
+    function getTimerFromStorage() {
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+          chrome.storage.sync.get(['isTimerRunning', 'timeLeft', 'timerEndTime'], function(result) {
+            if (chrome.runtime.lastError) {
+              resolve(null);
+              return;
+            }
+            
+            let timeLeft = result.timeLeft || 0;
+            
+            // If we have an end time, calculate the actual time left
+            if (result.timerEndTime && result.isTimerRunning) {
+              const now = Date.now();
+              if (now < result.timerEndTime) {
+                timeLeft = Math.ceil((result.timerEndTime - now) / 1000);
+              } else {
+                timeLeft = 0;
+              }
+            }
+            
+            resolve({
+              isRunning: result.isTimerRunning || false,
+              timeLeft: timeLeft
+            });
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    }
 
-          if (response) {
-            const timeLeft = response.timeLeft || 0;
-            updateTimerDisplay(timeLeft);
-            
-            // Update status message
-            const statusMessage = response.isRunning ? 
-              "Your focus session is active" : 
-              "No active session detected";
-            
+    // Update timer display
+    async function updateTimer() {
+      try {
+        const timerData = await getTimerFromStorage();
+        
+        if (timerData) {
+          const timeLeft = Math.max(0, timerData.timeLeft);
+          updateTimerDisplay(timeLeft);
+          
+          // Update status message
+          if (timerData.isRunning && timeLeft > 0) {
             document.getElementById('status').innerHTML = 
-              `<strong>${statusMessage}</strong><br>Time remaining: ${formatTime(timeLeft)}`;
+              '<strong>Focus session is active</strong><br>Stay focused on your current task. Access will be restored when the session ends.';
+          } else if (timeLeft <= 0) {
+            document.getElementById('status').innerHTML = 
+              '<strong>Session completed!</strong><br>You can now access this website. Try refreshing the page.';
+            // Stop updating if timer is done
+            if (updateInterval) {
+              clearInterval(updateInterval);
+            }
+          } else {
+            document.getElementById('status').innerHTML = 
+              '<strong>No active session</strong><br>The timer is not currently running.';
           }
-        });
+        } else {
+          // Fallback if we can't access storage
+          document.getElementById('timer').textContent = '--:--';
+          document.getElementById('status').innerHTML = 
+            '<strong>Unable to load timer status</strong><br>Try refreshing the page or check your extension.';
+        }
       } catch (e) {
-        document.getElementById('timer').textContent = '00:00';
+        console.error('Error updating timer:', e);
+        document.getElementById('timer').textContent = '--:--';
         document.getElementById('status').innerHTML = 
-          '<strong>Unable to load timer</strong><br>Try refreshing the page.';
+          '<strong>Error loading timer</strong><br>Please refresh the page.';
       }
     }
 
@@ -231,14 +272,25 @@
       return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    // Update timer display every second
+    // Initialize timer display
     updateTimer();
-    setInterval(updateTimer, 1000);
+    
+    // Update every second
+    updateInterval = setInterval(updateTimer, 1000);
 
-    // Add button event listener
-    document.getElementById('checkStatus').addEventListener('click', function() {
-      chrome.tabs.create({ url: 'popup.html' });
+    // Refresh page button
+    document.getElementById('refreshPage').addEventListener('click', function() {
+      window.location.reload();
     });
+
+    // Listen for storage changes to update in real-time
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener(function(changes, namespace) {
+        if (namespace === 'sync' && (changes.timeLeft || changes.isTimerRunning || changes.timerEndTime)) {
+          updateTimer();
+        }
+      });
+    }
   </script>
 </body>
 </html>
