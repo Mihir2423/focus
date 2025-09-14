@@ -35,18 +35,35 @@ function updateTimerStatus() {
   chrome.runtime.sendMessage({ type: 'getTimerStatus' }, function(response) {
     if (response) {
       isRunning = response.isRunning;
-      timeLeft = response.timeLeft;
-      focusMinutes = response.focusMinutes || 25;
       isBreakTime = response.isBreakTime || false;
-      loopEnabled = response.loopEnabled || false;
+      
+      // Always use the response timeLeft for running timers
+      if (isRunning) {
+        timeLeft = response.timeLeft;
+      } else {
+        // For stopped timers, use focusMinutes * 60 if we have it
+        if (focusMinutes && focusMinutes > 0) {
+          timeLeft = focusMinutes * 60;
+        } else {
+          timeLeft = response.timeLeft;
+        }
+      }
+      
+      // Update focusMinutes if available, but only if not currently editing
+      if (response.focusMinutes && !focusTimeInput.matches(':focus')) {
+        focusMinutes = response.focusMinutes;
+        focusTimeInput.value = focusMinutes;
+      }
+      
+      // Update loopEnabled if available
+      if (response.loopEnabled !== undefined) {
+        loopEnabled = response.loopEnabled;
+        loopToggle.checked = loopEnabled;
+      }
       
       updateTimerDisplay();
       updateStatusDisplay();
       updateControls();
-      
-      // Update focus time input
-      focusTimeInput.value = focusMinutes;
-      loopToggle.checked = loopEnabled;
     }
   });
 }

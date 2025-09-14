@@ -72,25 +72,26 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     sendResponse({ success: true });
   } else if (request.type === 'updateFocusTime') {
     focusMinutes = request.minutes;
-    // If timer is not running, also update timeLeft
-    if (!isTimerRunning) {
-      const newTimeLeft = focusMinutes * 60;
-      chrome.storage.sync.set({ 
-        focusMinutes: focusMinutes,
-        timeLeft: newTimeLeft
-      });
-    } else {
-      chrome.storage.sync.set({ focusMinutes: focusMinutes });
-    }
-    sendResponse({ success: true });
+    chrome.storage.sync.set({ focusMinutes: focusMinutes }, function() {
+      // If timer is not running, also update the timeLeft to reflect new focus time
+      if (!isTimerRunning) {
+        chrome.storage.sync.set({ timeLeft: focusMinutes * 60 });
+      }
+      console.log('Background: Focus time updated to', focusMinutes);
+      sendResponse({ success: true });
+    });
+    return true; // Keep message channel open for async response
   } else if (request.type === 'toggleLoop') {
     loopEnabled = request.enabled;
-    chrome.storage.sync.set({ loopEnabled: loopEnabled });
-    sendResponse({ success: true });
+    chrome.storage.sync.set({ loopEnabled: loopEnabled }, function() {
+      console.log('Background: Loop enabled set to', loopEnabled);
+      sendResponse({ success: true });
+    });
+    return true; // Keep message channel open for async response
   } else if (request.type === 'getTimerStatus') {
     // Calculate current time left
-    let timeLeft = focusMinutes * 60; // default
-    if (timerEndTime) {
+    let timeLeft = focusMinutes * 60; // default to current focus time
+    if (timerEndTime && isTimerRunning) {
       const now = Date.now();
       if (now < timerEndTime) {
         timeLeft = Math.ceil((timerEndTime - now) / 1000);
