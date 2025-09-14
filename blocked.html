@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Website Blocked - Pomodoro Focus</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle background gradient */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .container {
+      max-width: 480px;
+      padding: 0 24px;
+      text-align: center;
+      z-index: 1;
+    }
+
+    .icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 32px;
+      background: linear-gradient(135deg, #666 0%, #999 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      opacity: 0.8;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #888;
+      margin-bottom: 48px;
+      line-height: 1.5;
+    }
+
+    .timer-section {
+      margin-bottom: 48px;
+    }
+
+    .timer {
+      font-size: 56px;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.04em;
+      margin-bottom: 16px;
+      color: #fff;
+      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    }
+
+    .timer-label {
+      font-size: 14px;
+      color: #666;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 32px;
+      backdrop-filter: blur(10px);
+    }
+
+    .status-text {
+      font-size: 14px;
+      color: #ccc;
+      line-height: 1.6;
+    }
+
+    .tip {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .button {
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-block;
+      font-family: inherit;
+    }
+
+    .button:hover {
+      background: #f5f5f5;
+      transform: translateY(-1px);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    /* Subtle pulsing animation */
+    .timer {
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Responsive design */
+    @media (max-width: 640px) {
+      .container {
+        padding: 0 20px;
+      }
+      
+      h1 {
+        font-size: 28px;
+      }
+      
+      .timer {
+        font-size: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">⏱</div>
+    
+    <h1>Focus Mode Active</h1>
+    <p class="subtitle">This website is blocked during your Pomodoro session</p>
+    
+    <div class="timer-section">
+      <div class="timer" id="timer">25:00</div>
+      <div class="timer-label">Time Remaining</div>
+    </div>
+    
+    <div class="status-card">
+      <div class="status-text" id="status">
+        Stay focused on your current task. Access will be restored when the session ends.
+      </div>
+    </div>
+    
+    <p class="tip">
+      Use this time productively. The blocked content will be available after your focus session completes.
+    </p>
+    
+    <button class="button" id="refreshPage">Try Again</button>
+  </div>
+
+  <script>
+    let updateInterval;
+    
+    // Function to get timer status from storage directly
+    function getTimerFromStorage() {
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
+          chrome.storage.sync.get(['isTimerRunning', 'timeLeft', 'timerEndTime'], function(result) {
+            if (chrome.runtime.lastError) {
+              resolve(null);
+              return;
+            }
+            
+            let timeLeft = result.timeLeft || 0;
+            
+            // If we have an end time, calculate the actual time left
+            if (result.timerEndTime && result.isTimerRunning) {
+              const now = Date.now();
+              if (now < result.timerEndTime) {
+                timeLeft = Math.ceil((result.timerEndTime - now) / 1000);
+              } else {
+                timeLeft = 0;
+              }
+            }
+            
+            resolve({
+              isRunning: result.isTimerRunning || false,
+              timeLeft: timeLeft
+            });
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    }
+
+    // Update timer display
+    async function updateTimer() {
+      try {
+        const timerData = await getTimerFromStorage();
+        
+        if (timerData) {
+          const timeLeft = Math.max(0, timerData.timeLeft);
+          updateTimerDisplay(timeLeft);
+          
+          // Update status message
+          if (timerData.isRunning && timeLeft > 0) {
+            document.getElementById('status').innerHTML = 
+              '<strong>Focus session is active</strong><br>Stay focused on your current task. Access will be restored when the session ends.';
+          } else if (timeLeft <= 0) {
+            document.getElementById('status').innerHTML = 
+              '<strong>Session completed!</strong><br>You can now access this website. Try refreshing the page.';
+            // Stop updating if timer is done
+            if (updateInterval) {
+              clearInterval(updateInterval);
+            }
+          } else {
+            document.getElementById('status').innerHTML = 
+              '<strong>No active session</strong><br>The timer is not currently running.';
+          }
+        } else {
+          // Fallback if we can't access storage
+          document.getElementById('timer').textContent = '--:--';
+          document.getElementById('status').innerHTML = 
+            '<strong>Unable to load timer status</strong><br>Try refreshing the page or check your extension.';
+        }
+      } catch (e) {
+        console.error('Error updating timer:', e);
+        document.getElementById('timer').textContent = '--:--';
+        document.getElementById('status').innerHTML = 
+          '<strong>Error loading timer</strong><br>Please refresh the page.';
+      }
+    }
+
+    function updateTimerDisplay(timeLeft) {
+      document.getElementById('timer').textContent = formatTime(timeLeft);
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Initialize timer display
+    updateTimer();
+    
+    // Update every second
+    updateInterval = setInterval(updateTimer, 1000);
+
+    // Refresh page button
+    document.getElementById('refreshPage').addEventListener('click', function() {
+      window.location.reload();
+    });
+
+    // Listen for storage changes to update in real-time
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener(function(changes, namespace) {
+        if (namespace === 'sync' && (changes.timeLeft || changes.isTimerRunning || changes.timerEndTime || changes.isBreakTime)) {
+          updateTimer();
+        }
+      });
+    }
+  </script>
+</body>
+</html>

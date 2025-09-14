@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Pomodoro Website Blocker",
+  "version": "1.0",
+  "description": "A Pomodoro timer that blocks specified websites during focus sessions",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "notifications",
+    "background",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pomodoro Timer"
+  },
+  "icons": {
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
+  }
+}
