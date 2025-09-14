@@ -15,7 +15,7 @@
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
       padding: 24px;
-      min-height: 500px;
+      min-height: 600px;
     }
 
     .header {
@@ -61,10 +61,10 @@
       border: 1px solid rgba(34, 197, 94, 0.2);
     }
 
-    .status-paused {
-      background: rgba(251, 191, 36, 0.1);
-      color: #fbbf24;
-      border: 1px solid rgba(251, 191, 36, 0.2);
+    .status-break {
+      background: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.2);
     }
 
     .status-stopped {
@@ -136,9 +136,12 @@
       background: #f5f5f5;
     }
 
-    .websites-section {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      padding-top: 24px;
+    .settings-section {
+      margin-bottom: 32px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
     }
 
     .section-title {
@@ -148,13 +151,125 @@
       margin-bottom: 16px;
     }
 
+    .setting-item {
+      margin-bottom: 16px;
+    }
+
+    .setting-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .setting-label {
+      font-size: 14px;
+      color: #ccc;
+      margin-bottom: 8px;
+      display: block;
+    }
+
     .input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      width: 80px;
+    }
+
+    .input::placeholder {
+      color: #666;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-small {
+      background: #fff;
+      color: #000;
+      border: 1px solid transparent;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn-small:hover {
+      background: #f5f5f5;
+    }
+
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .toggle input {
+      display: none;
+    }
+
+    .toggle::before {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .toggle input:checked + .toggle {
+      background: #22c55e;
+      border-color: #22c55e;
+    }
+
+    .toggle input:checked + .toggle::before {
+      transform: translateX(20px);
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .websites-section {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 24px;
+    }
+
+    .input-group-website {
       display: flex;
       gap: 8px;
       margin-bottom: 16px;
     }
 
-    .input {
+    .input-website {
       flex: 1;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -165,11 +280,11 @@
       font-family: inherit;
     }
 
-    .input::placeholder {
+    .input-website::placeholder {
       color: #666;
     }
 
-    .input:focus {
+    .input-website:focus {
       outline: none;
       border-color: rgba(255, 255, 255, 0.3);
       background: rgba(255, 255, 255, 0.08);
@@ -269,13 +384,20 @@
     }
 
     /* Animation for timer */
-    .timer-running {
+    .timer-running .timer-display {
       animation: pulse 2s ease-in-out infinite;
     }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.7; }
+    }
+
+    .loop-description {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -296,11 +418,35 @@
     <button id="pauseBtn" class="btn">Pause</button>
     <button id="resetBtn" class="btn">Reset</button>
   </div>
+
+  <div class="settings-section">
+    <h3 class="section-title">Timer Settings</h3>
+    
+    <div class="setting-item">
+      <label class="setting-label">Focus Time (minutes)</label>
+      <div class="input-group">
+        <input type="number" id="focusTimeInput" class="input" value="25" min="1" max="180">
+        <button id="updateTimeBtn" class="btn-small">Update</button>
+      </div>
+    </div>
+
+    <div class="setting-item">
+      <label class="setting-label">Auto Loop</label>
+      <div class="toggle-container">
+        <input type="checkbox" id="loopToggle">
+        <label for="loopToggle" class="toggle"></label>
+        <span class="toggle-label">Automatically cycle between focus and break</span>
+      </div>
+      <div class="loop-description">
+        When enabled, automatically starts a 10-minute break after focus time, then returns to focus time.
+      </div>
+    </div>
+  </div>
   
   <div class="websites-section">
     <h3 class="section-title">Blocked Websites</h3>
-    <div class="input-group">
-      <input type="text" id="websiteInput" class="input" placeholder="facebook.com">
+    <div class="input-group-website">
+      <input type="text" id="websiteInput" class="input-website" placeholder="facebook.com">
       <button id="addWebsiteBtn" class="btn-add">Add</button>
     </div>
     <div id="websitesList" class="websites-list">

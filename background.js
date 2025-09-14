@@ -2,9 +2,12 @@ let isTimerRunning = false;
 let blockedWebsites = [];
 let timerEndTime = null;
 let timerInterval = null;
+let focusMinutes = 25; // Default focus time
+let isBreakTime = false;
+let loopEnabled = false;
 
 // Load all values from storage when extension starts
-chrome.storage.sync.get(['isTimerRunning', 'blockedWebsites', 'timerEndTime', 'timeLeft'], function(result) {
+chrome.storage.sync.get(['isTimerRunning', 'blockedWebsites', 'timerEndTime', 'timeLeft', 'focusMinutes', 'isBreakTime', 'loopEnabled'], function(result) {
   if (result.isTimerRunning !== undefined) {
     isTimerRunning = result.isTimerRunning;
   }
@@ -13,6 +16,15 @@ chrome.storage.sync.get(['isTimerRunning', 'blockedWebsites', 'timerEndTime', 't
   }
   if (result.timerEndTime) {
     timerEndTime = result.timerEndTime;
+  }
+  if (result.focusMinutes) {
+    focusMinutes = result.focusMinutes;
+  }
+  if (result.isBreakTime !== undefined) {
+    isBreakTime = result.isBreakTime;
+  }
+  if (result.loopEnabled !== undefined) {
+    loopEnabled = result.loopEnabled;
   }
   
   // If timer was running, restart it
@@ -33,6 +45,15 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
     if (changes.timerEndTime) {
       timerEndTime = changes.timerEndTime.newValue;
     }
+    if (changes.focusMinutes) {
+      focusMinutes = changes.focusMinutes.newValue;
+    }
+    if (changes.isBreakTime) {
+      isBreakTime = changes.isBreakTime.newValue;
+    }
+    if (changes.loopEnabled) {
+      loopEnabled = changes.loopEnabled.newValue;
+    }
   }
 });
 
@@ -49,9 +70,26 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   } else if (request.type === 'resetTimer') {
     resetBackgroundTimer();
     sendResponse({ success: true });
+  } else if (request.type === 'updateFocusTime') {
+    focusMinutes = request.minutes;
+    // If timer is not running, also update timeLeft
+    if (!isTimerRunning) {
+      const newTimeLeft = focusMinutes * 60;
+      chrome.storage.sync.set({ 
+        focusMinutes: focusMinutes,
+        timeLeft: newTimeLeft
+      });
+    } else {
+      chrome.storage.sync.set({ focusMinutes: focusMinutes });
+    }
+    sendResponse({ success: true });
+  } else if (request.type === 'toggleLoop') {
+    loopEnabled = request.enabled;
+    chrome.storage.sync.set({ loopEnabled: loopEnabled });
+    sendResponse({ success: true });
   } else if (request.type === 'getTimerStatus') {
     // Calculate current time left
-    let timeLeft = 25 * 60; // default
+    let timeLeft = focusMinutes * 60; // default
     if (timerEndTime) {
       const now = Date.now();
       if (now < timerEndTime) {
@@ -64,7 +102,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     sendResponse({
       isRunning: isTimerRunning,
       timeLeft: timeLeft,
-      timerEndTime: timerEndTime
+      timerEndTime: timerEndTime,
+      focusMinutes: focusMinutes,
+      isBreakTime: isBreakTime,
+      loopEnabled: loopEnabled
     });
   }
 });
@@ -80,7 +121,7 @@ function startBackgroundTimer() {
   if (!timerEndTime || !isTimerRunning) {
     // Get current timeLeft from storage or use default
     chrome.storage.sync.get(['timeLeft'], function(result) {
-      let timeLeft = result.timeLeft !== undefined ? result.timeLeft : 25 * 60;
+      let timeLeft = result.timeLeft !== undefined ? result.timeLeft : focusMinutes * 60;
       timerEndTime = Date.now() + (timeLeft * 1000);
       
       isTimerRunning = true;
@@ -110,21 +151,80 @@ function runTimerInterval() {
       timeLeft = Math.ceil((timerEndTime - now) / 1000);
     }
     
+    // Update storage with current time left
     chrome.storage.sync.set({ timeLeft: timeLeft });
     
     if (timeLeft <= 0) {
       // Timer finished
       clearInterval(timerInterval);
       isTimerRunning = false;
-      chrome.storage.sync.set({ isTimerRunning: false });
       
-      // Show notification
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: 'icon48.png',
-        title: 'Pomodoro Timer',
-        message: 'Time is up! Take a break.'
-      });
+      if (isBreakTime) {
+        // Break ended, start focus session if loop is enabled
+        isBreakTime = false;
+        chrome.storage.sync.set({ isBreakTime: false });
+        
+        if (loopEnabled) {
+          // Start focus session
+          timerEndTime = Date.now() + (focusMinutes * 60 * 1000);
+          isTimerRunning = true;
+          chrome.storage.sync.set({ 
+            isTimerRunning: true,
+            timerEndTime: timerEndTime,
+            timeLeft: focusMinutes * 60
+          });
+          
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'Break Time Over!',
+            message: 'Focus session started. Stay productive!'
+          });
+          
+          runTimerInterval();
+          return;
+        } else {
+          chrome.storage.sync.set({ isTimerRunning: false });
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'Break Time Over!',
+            message: 'Ready to start your next focus session?'
+          });
+        }
+      } else {
+        // Focus session ended, start break if loop is enabled
+        if (loopEnabled) {
+          // Start break session (10 minutes)
+          isBreakTime = true;
+          timerEndTime = Date.now() + (10 * 60 * 1000); // 10 minutes break
+          isTimerRunning = true;
+          chrome.storage.sync.set({ 
+            isTimerRunning: true,
+            timerEndTime: timerEndTime,
+            timeLeft: 10 * 60,
+            isBreakTime: true
+          });
+          
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'Focus Session Complete!',
+            message: 'Time for a 10-minute break. Well done!'
+          });
+          
+          runTimerInterval();
+          return;
+        } else {
+          chrome.storage.sync.set({ isTimerRunning: false });
+          chrome.notifications.create({
+            type: 'basic',
+            iconUrl: 'icon48.png',
+            title: 'Focus Session Complete!',
+            message: 'Great work! Time for a well-deserved break.'
+          });
+        }
+      }
     }
   }, 1000);
 }
@@ -147,17 +247,19 @@ function resetBackgroundTimer() {
   
   isTimerRunning = false;
   timerEndTime = null;
+  isBreakTime = false;
   chrome.storage.sync.set({ 
     isTimerRunning: false,
     timerEndTime: null,
-    timeLeft: 25 * 60
+    timeLeft: focusMinutes * 60,
+    isBreakTime: false
   });
 }
 
 // Helper function to check if a URL should be blocked
 function shouldBlockUrl(url) {
-  // If timer is not running, don't block
-  if (!isTimerRunning) {
+  // If timer is not running or it's break time, don't block
+  if (!isTimerRunning || isBreakTime) {
     return false;
   }
   

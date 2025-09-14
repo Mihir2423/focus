@@ -1,5 +1,8 @@
 let timeLeft = 25 * 60; // 25 minutes in seconds
 let isRunning = false;
+let focusMinutes = 25;
+let isBreakTime = false;
+let loopEnabled = false;
 
 const timerDisplay = document.getElementById('timer');
 const startBtn = document.getElementById('startBtn');
@@ -9,6 +12,9 @@ const websiteInput = document.getElementById('websiteInput');
 const addWebsiteBtn = document.getElementById('addWebsiteBtn');
 const websitesList = document.getElementById('websitesList');
 const statusDisplay = document.getElementById('status');
+const focusTimeInput = document.getElementById('focusTimeInput');
+const updateTimeBtn = document.getElementById('updateTimeBtn');
+const loopToggle = document.getElementById('loopToggle');
 
 // Load data from storage when popup opens
 document.addEventListener('DOMContentLoaded', function() {
@@ -30,18 +36,52 @@ function updateTimerStatus() {
     if (response) {
       isRunning = response.isRunning;
       timeLeft = response.timeLeft;
+      focusMinutes = response.focusMinutes || 25;
+      isBreakTime = response.isBreakTime || false;
+      loopEnabled = response.loopEnabled || false;
       
       updateTimerDisplay();
+      updateStatusDisplay();
+      updateControls();
       
-      if (isRunning) {
-        statusDisplay.textContent = 'Timer Running';
-        statusDisplay.className = 'status running';
-      } else {
-        statusDisplay.textContent = 'Timer Not Running';
-        statusDisplay.className = 'status not-running';
-      }
+      // Update focus time input
+      focusTimeInput.value = focusMinutes;
+      loopToggle.checked = loopEnabled;
     }
   });
+}
+
+function updateStatusDisplay() {
+  if (isRunning) {
+    if (isBreakTime) {
+      statusDisplay.textContent = 'Break Time';
+      statusDisplay.className = 'status-badge status-break';
+    } else {
+      statusDisplay.textContent = 'Focus Time';
+      statusDisplay.className = 'status-badge status-running';
+    }
+  } else {
+    statusDisplay.textContent = 'Not Running';
+    statusDisplay.className = 'status-badge status-stopped';
+  }
+}
+
+function updateControls() {
+  // Update timer label
+  const timerLabel = document.querySelector('.timer-label');
+  if (isBreakTime) {
+    timerLabel.textContent = 'Break Time';
+  } else {
+    timerLabel.textContent = 'Focus Time';
+  }
+  
+  // Update timer section classes for styling
+  const timerSection = document.querySelector('.timer-section');
+  if (isRunning && !isBreakTime) {
+    timerSection.classList.add('timer-running');
+  } else {
+    timerSection.classList.remove('timer-running');
+  }
 }
 
 // Timer functions
@@ -75,19 +115,65 @@ function updateTimerDisplay() {
   timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
+function updateFocusTime() {
+  const minutes = parseInt(focusTimeInput.value);
+  if (minutes && minutes > 0 && minutes <= 180) { // Max 3 hours
+    chrome.runtime.sendMessage({ type: 'updateFocusTime', minutes: minutes }, function(response) {
+      if (response && response.success) {
+        focusMinutes = minutes;
+        if (!isRunning) {
+          // If timer is not running, update the display
+          timeLeft = minutes * 60;
+          updateTimerDisplay();
+        }
+      }
+    });
+  } else {
+    alert('Please enter a valid time between 1 and 180 minutes.');
+    focusTimeInput.value = focusMinutes;
+  }
+}
+
+function toggleLoop() {
+  chrome.runtime.sendMessage({ type: 'toggleLoop', enabled: loopToggle.checked }, function(response) {
+    if (response && response.success) {
+      loopEnabled = loopToggle.checked;
+    }
+  });
+}
+
 // Event listeners
 startBtn.addEventListener('click', startTimer);
 pauseBtn.addEventListener('click', pauseTimer);
 resetBtn.addEventListener('click', resetTimer);
+updateTimeBtn.addEventListener('click', updateFocusTime);
+loopToggle.addEventListener('change', toggleLoop);
+
+// Allow Enter key to update time
+focusTimeInput.addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    updateFocusTime();
+  }
+});
 
 // Website blocking functions
 function renderWebsitesList(websites) {
+  if (websites.length === 0) {
+    websitesList.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🌐</div>
+        <div>No websites blocked yet</div>
+      </div>
+    `;
+    return;
+  }
+
   websitesList.innerHTML = '';
   websites.forEach(website => {
     const websiteItem = document.createElement('div');
     websiteItem.className = 'website-item';
     websiteItem.innerHTML = `
-      <span>${website}</span>
+      <span class="website-url">${website}</span>
       <button class="remove-btn" data-website="${website}">Remove</button>
     `;
     websitesList.appendChild(websiteItem);

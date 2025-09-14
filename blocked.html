@@ -286,7 +286,7 @@
     // Listen for storage changes to update in real-time
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener(function(changes, namespace) {
-        if (namespace === 'sync' && (changes.timeLeft || changes.isTimerRunning || changes.timerEndTime)) {
+        if (namespace === 'sync' && (changes.timeLeft || changes.isTimerRunning || changes.timerEndTime || changes.isBreakTime)) {
           updateTimer();
         }
       });
