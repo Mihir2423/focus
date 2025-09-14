@@ -21,8 +21,8 @@
     "default_title": "Pomodoro Timer"
   },
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "16": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
   }
 }
