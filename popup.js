@@ -1,6 +1,7 @@
-let timeLeft = 25 * 60;
+let timeLeft = 0; // Will be set from background script
 let isRunning = false;
 let focusMinutes = 25;
+let breakMinutes = 10;
 let isBreakTime = false;
 let loopEnabled = false;
 
@@ -14,6 +15,8 @@ const websitesList = document.getElementById("websitesList");
 const statusDisplay = document.getElementById("status");
 const focusTimeInput = document.getElementById("focusTimeInput");
 const updateTimeBtn = document.getElementById("updateTimeBtn");
+const breakTimeInput = document.getElementById("breakTimeInput");
+const updateBreakTimeBtn = document.getElementById("updateBreakTimeBtn");
 const loopToggle = document.getElementById("loopToggle");
 
 // Accordion elements
@@ -21,6 +24,7 @@ const accordionHeader = document.querySelector('.accordion-header');
 const settingsContent = document.getElementById('settingsContent');
 
 document.addEventListener("DOMContentLoaded", function () {
+  // Get initial timer status immediately
   updateTimerStatus();
 
   chrome.storage.sync.get(["blockedWebsites"], function (result) {
@@ -36,6 +40,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Update timer status every second
   setInterval(updateTimerStatus, 1000);
 });
 
@@ -45,19 +50,18 @@ function updateTimerStatus() {
       isRunning = response.isRunning;
       isBreakTime = response.isBreakTime || false;
 
-      if (isRunning) {
-        timeLeft = response.timeLeft;
-      } else {
-        if (focusMinutes && focusMinutes > 0) {
-          timeLeft = focusMinutes * 60;
-        } else {
-          timeLeft = response.timeLeft;
-        }
-      }
+      // Always use the actual timeLeft from the background script
+      // This ensures synchronization between popup and blocked page
+      timeLeft = response.timeLeft;
 
       if (response.focusMinutes && !focusTimeInput.matches(":focus")) {
         focusMinutes = response.focusMinutes;
         focusTimeInput.value = focusMinutes;
+      }
+
+      if (response.breakMinutes && !breakTimeInput.matches(":focus")) {
+        breakMinutes = response.breakMinutes;
+        breakTimeInput.value = breakMinutes;
       }
 
       if (response.loopEnabled !== undefined) {
@@ -141,16 +145,32 @@ function updateFocusTime() {
       function (response) {
         if (response && response.success) {
           focusMinutes = minutes;
-          if (!isRunning) {
-            timeLeft = minutes * 60;
-            updateTimerDisplay();
-          }
+          // Always update the timer display after changing focus time
+          updateTimerStatus();
         }
       }
     );
   } else {
     alert("Please enter a valid time between 1 and 180 minutes.");
     focusTimeInput.value = focusMinutes;
+  }
+}
+
+function updateBreakTime() {
+  const minutes = parseInt(breakTimeInput.value);
+  if (minutes && minutes > 0 && minutes <= 60) {
+    chrome.runtime.sendMessage(
+      { type: "updateBreakTime", minutes: minutes },
+      function (response) {
+        if (response && response.success) {
+          breakMinutes = minutes;
+          console.log("Break time updated to", breakMinutes, "minutes");
+        }
+      }
+    );
+  } else {
+    alert("Please enter a valid time between 1 and 60 minutes.");
+    breakTimeInput.value = breakMinutes;
   }
 }
 
@@ -169,11 +189,18 @@ startBtn.addEventListener("click", startTimer);
 pauseBtn.addEventListener("click", pauseTimer);
 resetBtn.addEventListener("click", resetTimer);
 updateTimeBtn.addEventListener("click", updateFocusTime);
+updateBreakTimeBtn.addEventListener("click", updateBreakTime);
 loopToggle.addEventListener("change", toggleLoop);
 
 focusTimeInput.addEventListener("keypress", function (e) {
   if (e.key === "Enter") {
     updateFocusTime();
+  }
+});
+
+breakTimeInput.addEventListener("keypress", function (e) {
+  if (e.key === "Enter") {
+    updateBreakTime();
   }
 });
 
