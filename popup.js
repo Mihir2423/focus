@@ -16,6 +16,10 @@ const focusTimeInput = document.getElementById("focusTimeInput");
 const updateTimeBtn = document.getElementById("updateTimeBtn");
 const loopToggle = document.getElementById("loopToggle");
 
+// Accordion elements
+const accordionHeader = document.querySelector('.accordion-header');
+const settingsContent = document.getElementById('settingsContent');
+
 document.addEventListener("DOMContentLoaded", function () {
   updateTimerStatus();
 
@@ -23,6 +27,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const blockedWebsites = result.blockedWebsites || [];
     renderWebsitesList(blockedWebsites);
   });
+
+  // Add event listener for accordion
+  if (accordionHeader) {
+    accordionHeader.addEventListener('click', function() {
+      this.classList.toggle('active');
+      settingsContent.classList.toggle('active');
+    });
+  }
 
   setInterval(updateTimerStatus, 1000);
 });

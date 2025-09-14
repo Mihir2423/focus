@@ -138,17 +138,46 @@
 
     .settings-section {
       margin-bottom: 32px;
-      padding: 20px;
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      padding: 20px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .accordion-content {
+      padding: 20px;
+      display: none;
+    }
+
+    .accordion-content.active {
+      display: block;
+    }
+
+    .accordion-arrow {
+      transition: transform 0.3s ease;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .accordion-header.active .accordion-arrow {
+      transform: rotate(180deg);
     }
 
     .section-title {
       font-size: 16px;
       font-weight: 600;
       color: #fff;
-      margin-bottom: 16px;
+      margin-bottom: 0;
     }
 
     .setting-item {
@@ -431,27 +460,31 @@
   </div>
 
   <div class="settings-section">
-    <h3 class="section-title">Timer Settings</h3>
-    
-    <div class="setting-item">
-      <label class="setting-label">Focus Time (minutes)</label>
-      <div class="input-group">
-        <input type="number" id="focusTimeInput" class="input" value="25" min="1" max="180">
-        <button id="updateTimeBtn" class="btn-small">Update</button>
-      </div>
+    <div class="accordion-header">
+      <h3 class="section-title">Timer Settings</h3>
+      <div class="accordion-arrow">▼</div>
     </div>
-
-    <div class="setting-item">
-      <label class="setting-label">Auto Loop</label>
-      <div class="toggle-container">
-        <div class="toggle-wrapper">
-          <input type="checkbox" id="loopToggle" class="toggle-input">
-          <label for="loopToggle" class="toggle-slider"></label>
+    <div class="accordion-content" id="settingsContent">
+      <div class="setting-item">
+        <label class="setting-label">Focus Time (minutes)</label>
+        <div class="input-group">
+          <input type="number" id="focusTimeInput" class="input" value="25" min="1" max="180">
+          <button id="updateTimeBtn" class="btn-small">Update</button>
         </div>
-        <span class="toggle-label">Automatically cycle between focus and break</span>
       </div>
-      <div class="loop-description">
-        When enabled, automatically starts a 10-minute break after focus time, then returns to focus time.
+
+      <div class="setting-item">
+        <label class="setting-label">Auto Loop</label>
+        <div class="toggle-container">
+          <div class="toggle-wrapper">
+            <input type="checkbox" id="loopToggle" class="toggle-input">
+            <label for="loopToggle" class="toggle-slider"></label>
+          </div>
+          <span class="toggle-label">Automatically cycle between focus and break</span>
+        </div>
+        <div class="loop-description">
+          When enabled, automatically starts a 10-minute break after focus time, then returns to focus time.
+        </div>
       </div>
     </div>
   </div>
