@@ -2,40 +2,48 @@ let isTimerRunning = false;
 let blockedWebsites = [];
 let timerEndTime = null;
 let timerInterval = null;
-let focusMinutes = 25; // Default focus time
+let focusMinutes = 25;
 let isBreakTime = false;
 let loopEnabled = false;
 
-// Load all values from storage when extension starts
-chrome.storage.sync.get(['isTimerRunning', 'blockedWebsites', 'timerEndTime', 'timeLeft', 'focusMinutes', 'isBreakTime', 'loopEnabled'], function(result) {
-  if (result.isTimerRunning !== undefined) {
-    isTimerRunning = result.isTimerRunning;
-  }
-  if (result.blockedWebsites) {
-    blockedWebsites = result.blockedWebsites;
-  }
-  if (result.timerEndTime) {
-    timerEndTime = result.timerEndTime;
-  }
-  if (result.focusMinutes) {
-    focusMinutes = result.focusMinutes;
-  }
-  if (result.isBreakTime !== undefined) {
-    isBreakTime = result.isBreakTime;
-  }
-  if (result.loopEnabled !== undefined) {
-    loopEnabled = result.loopEnabled;
-  }
-  
-  // If timer was running, restart it
-  if (isTimerRunning && timerEndTime) {
-    startBackgroundTimer();
-  }
-});
+chrome.storage.sync.get(
+  [
+    "isTimerRunning",
+    "blockedWebsites",
+    "timerEndTime",
+    "timeLeft",
+    "focusMinutes",
+    "isBreakTime",
+    "loopEnabled",
+  ],
+  function (result) {
+    if (result.isTimerRunning !== undefined) {
+      isTimerRunning = result.isTimerRunning;
+    }
+    if (result.blockedWebsites) {
+      blockedWebsites = result.blockedWebsites;
+    }
+    if (result.timerEndTime) {
+      timerEndTime = result.timerEndTime;
+    }
+    if (result.focusMinutes) {
+      focusMinutes = result.focusMinutes;
+    }
+    if (result.isBreakTime !== undefined) {
+      isBreakTime = result.isBreakTime;
+    }
+    if (result.loopEnabled !== undefined) {
+      loopEnabled = result.loopEnabled;
+    }
 
-// Listen for timer status changes
-chrome.storage.onChanged.addListener(function(changes, namespace) {
-  if (namespace === 'sync') {
+    if (isTimerRunning && timerEndTime) {
+      startBackgroundTimer();
+    }
+  }
+);
+
+chrome.storage.onChanged.addListener(function (changes, namespace) {
+  if (namespace === "sync") {
     if (changes.isTimerRunning) {
       isTimerRunning = changes.isTimerRunning.newValue;
     }
@@ -57,40 +65,37 @@ chrome.storage.onChanged.addListener(function(changes, namespace) {
   }
 });
 
-// Listen for messages from popup
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  if (request.type === 'blockedWebsitesUpdated') {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  if (request.type === "blockedWebsitesUpdated") {
     blockedWebsites = request.blockedWebsites;
-  } else if (request.type === 'startTimer') {
+  } else if (request.type === "startTimer") {
     startBackgroundTimer();
     sendResponse({ success: true });
-  } else if (request.type === 'pauseTimer') {
+  } else if (request.type === "pauseTimer") {
     pauseBackgroundTimer();
     sendResponse({ success: true });
-  } else if (request.type === 'resetTimer') {
+  } else if (request.type === "resetTimer") {
     resetBackgroundTimer();
     sendResponse({ success: true });
-  } else if (request.type === 'updateFocusTime') {
+  } else if (request.type === "updateFocusTime") {
     focusMinutes = request.minutes;
-    chrome.storage.sync.set({ focusMinutes: focusMinutes }, function() {
-      // If timer is not running, also update the timeLeft to reflect new focus time
+    chrome.storage.sync.set({ focusMinutes: focusMinutes }, function () {
       if (!isTimerRunning) {
         chrome.storage.sync.set({ timeLeft: focusMinutes * 60 });
       }
-      console.log('Background: Focus time updated to', focusMinutes);
+      console.log("Background: Focus time updated to", focusMinutes);
       sendResponse({ success: true });
     });
-    return true; // Keep message channel open for async response
-  } else if (request.type === 'toggleLoop') {
+    return true;
+  } else if (request.type === "toggleLoop") {
     loopEnabled = request.enabled;
-    chrome.storage.sync.set({ loopEnabled: loopEnabled }, function() {
-      console.log('Background: Loop enabled set to', loopEnabled);
+    chrome.storage.sync.set({ loopEnabled: loopEnabled }, function () {
+      console.log("Background: Loop enabled set to", loopEnabled);
       sendResponse({ success: true });
     });
-    return true; // Keep message channel open for async response
-  } else if (request.type === 'getTimerStatus') {
-    // Calculate current time left
-    let timeLeft = focusMinutes * 60; // default to current focus time
+    return true;
+  } else if (request.type === "getTimerStatus") {
+    let timeLeft = focusMinutes * 60;
     if (timerEndTime && isTimerRunning) {
       const now = Date.now();
       if (now < timerEndTime) {
@@ -99,44 +104,39 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         timeLeft = 0;
       }
     }
-    
+
     sendResponse({
       isRunning: isTimerRunning,
       timeLeft: timeLeft,
       timerEndTime: timerEndTime,
       focusMinutes: focusMinutes,
       isBreakTime: isBreakTime,
-      loopEnabled: loopEnabled
+      loopEnabled: loopEnabled,
     });
   }
 });
 
-// Background timer functions
 function startBackgroundTimer() {
-  // Clear any existing interval
   if (timerInterval) {
     clearInterval(timerInterval);
   }
-  
-  // Set timer end time if not already set
+
   if (!timerEndTime || !isTimerRunning) {
-    // Get current timeLeft from storage or use default
-    chrome.storage.sync.get(['timeLeft'], function(result) {
-      let timeLeft = result.timeLeft !== undefined ? result.timeLeft : focusMinutes * 60;
-      timerEndTime = Date.now() + (timeLeft * 1000);
-      
+    chrome.storage.sync.get(["timeLeft"], function (result) {
+      let timeLeft =
+        result.timeLeft !== undefined ? result.timeLeft : focusMinutes * 60;
+      timerEndTime = Date.now() + timeLeft * 1000;
+
       isTimerRunning = true;
-      chrome.storage.sync.set({ 
+      chrome.storage.sync.set({
         isTimerRunning: true,
         timerEndTime: timerEndTime,
-        timeLeft: timeLeft
+        timeLeft: timeLeft,
       });
-      
-      // Start the interval
+
       runTimerInterval();
     });
   } else {
-    // Timer was already running, just restart the interval
     isTimerRunning = true;
     chrome.storage.sync.set({ isTimerRunning: true });
     runTimerInterval();
@@ -147,82 +147,76 @@ function runTimerInterval() {
   timerInterval = setInterval(() => {
     const now = Date.now();
     let timeLeft = 0;
-    
+
     if (timerEndTime && now < timerEndTime) {
       timeLeft = Math.ceil((timerEndTime - now) / 1000);
     }
-    
-    // Update storage with current time left
+
     chrome.storage.sync.set({ timeLeft: timeLeft });
-    
+
     if (timeLeft <= 0) {
-      // Timer finished
       clearInterval(timerInterval);
       isTimerRunning = false;
-      
+
       if (isBreakTime) {
-        // Break ended, start focus session if loop is enabled
         isBreakTime = false;
         chrome.storage.sync.set({ isBreakTime: false });
-        
+
         if (loopEnabled) {
-          // Start focus session
-          timerEndTime = Date.now() + (focusMinutes * 60 * 1000);
+          timerEndTime = Date.now() + focusMinutes * 60 * 1000;
           isTimerRunning = true;
-          chrome.storage.sync.set({ 
+          chrome.storage.sync.set({
             isTimerRunning: true,
             timerEndTime: timerEndTime,
-            timeLeft: focusMinutes * 60
+            timeLeft: focusMinutes * 60,
           });
-          
+
           chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icon48.png',
-            title: 'Break Time Over!',
-            message: 'Focus session started. Stay productive!'
+            type: "basic",
+            iconUrl: "icon48.png",
+            title: "Break Time Over!",
+            message: "Focus session started. Stay productive!",
           });
-          
+
           runTimerInterval();
           return;
         } else {
           chrome.storage.sync.set({ isTimerRunning: false });
           chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icon48.png',
-            title: 'Break Time Over!',
-            message: 'Ready to start your next focus session?'
+            type: "basic",
+            iconUrl: "icon48.png",
+            title: "Break Time Over!",
+            message: "Ready to start your next focus session?",
           });
         }
       } else {
-        // Focus session ended, start break if loop is enabled
         if (loopEnabled) {
-          // Start break session (10 minutes)
           isBreakTime = true;
-          timerEndTime = Date.now() + (10 * 60 * 1000); // 10 minutes break
+          timerEndTime = Date.now() + 10 * 60 * 1000;
           isTimerRunning = true;
-          chrome.storage.sync.set({ 
+          chrome.storage.sync.set({
             isTimerRunning: true,
             timerEndTime: timerEndTime,
             timeLeft: 10 * 60,
-            isBreakTime: true
+            isBreakTime: true,
           });
-          
+
           chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icon48.png',
-            title: 'Focus Session Complete!',
-            message: 'Time for a 10-minute break. Well done!'
+            type: "basic",
+            iconUrl: "icon48.png",
+            title: "Focus Session Complete!",
+            message: "Time for a 10-minute break. Well done!",
           });
-          
+
           runTimerInterval();
           return;
         } else {
           chrome.storage.sync.set({ isTimerRunning: false });
           chrome.notifications.create({
-            type: 'basic',
-            iconUrl: 'icon48.png',
-            title: 'Focus Session Complete!',
-            message: 'Great work! Time for a well-deserved break.'
+            type: "basic",
+            iconUrl: "icon48.png",
+            title: "Focus Session Complete!",
+            message: "Great work! Time for a well-deserved break.",
           });
         }
       }
@@ -235,7 +229,7 @@ function pauseBackgroundTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
-  
+
   isTimerRunning = false;
   chrome.storage.sync.set({ isTimerRunning: false });
 }
@@ -245,85 +239,73 @@ function resetBackgroundTimer() {
     clearInterval(timerInterval);
     timerInterval = null;
   }
-  
+
   isTimerRunning = false;
   timerEndTime = null;
   isBreakTime = false;
-  chrome.storage.sync.set({ 
+  chrome.storage.sync.set({
     isTimerRunning: false,
     timerEndTime: null,
     timeLeft: focusMinutes * 60,
-    isBreakTime: false
+    isBreakTime: false,
   });
 }
 
-// Helper function to check if a URL should be blocked
 function shouldBlockUrl(url) {
-  // If timer is not running or it's break time, don't block
   if (!isTimerRunning || isBreakTime) {
     return false;
   }
-  
-  // Check if current time is past timer end time
+
   const now = Date.now();
   if (timerEndTime && now >= timerEndTime) {
-    // Timer has ended, stop blocking
     chrome.storage.sync.set({ isTimerRunning: false });
     isTimerRunning = false;
     return false;
   }
-  
+
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-    
-    // Check each blocked website
+
     for (let site of blockedWebsites) {
-      // Normalize the blocked site
       let cleanSite = site.trim().toLowerCase();
-      // Remove protocol if present
-      cleanSite = cleanSite.replace(/^(https?:\/\/)/, '');
-      // Remove www if present
-      cleanSite = cleanSite.replace(/^www\./, '');
-      // Remove trailing slash and any path
-      cleanSite = cleanSite.replace(/\/.*$/, '');
-      
-      // Check if hostname contains the blocked site or vice versa
+
+      cleanSite = cleanSite.replace(/^(https?:\/\/)/, "");
+
+      cleanSite = cleanSite.replace(/^www\./, "");
+
+      cleanSite = cleanSite.replace(/\/.*$/, "");
+
       if (hostname.includes(cleanSite) || cleanSite.includes(hostname)) {
         return true;
       }
     }
   } catch (e) {
-    // If URL parsing fails, don't block
     return false;
   }
-  
+
   return false;
 }
 
-// Block requests to blocked websites when timer is running
 chrome.webRequest.onBeforeRequest.addListener(
-  function(details) {
+  function (details) {
     if (shouldBlockUrl(details.url)) {
-      // Redirect to blocked page
-      return { redirectUrl: chrome.runtime.getURL('blocked.html') };
+      return { redirectUrl: chrome.runtime.getURL("blocked.html") };
     }
-    
+
     return { cancel: false };
   },
   { urls: ["<all_urls>"] },
   ["blocking"]
 );
 
-// Listen for tab updates to redirect if needed
-chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
-  if (!changeInfo.url || changeInfo.status !== 'loading') {
+chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+  if (!changeInfo.url || changeInfo.status !== "loading") {
     return;
   }
-  
+
   if (shouldBlockUrl(changeInfo.url)) {
-    // Redirect to blocked page
-    chrome.tabs.update(tabId, { url: chrome.runtime.getURL('blocked.html') });
+    chrome.tabs.update(tabId, { url: chrome.runtime.getURL("blocked.html") });
     return;
   }
 });

@@ -217,39 +217,50 @@
       gap: 12px;
     }
 
-    .toggle {
+    .toggle-wrapper {
       position: relative;
+      display: inline-block;
       width: 44px;
       height: 24px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      cursor: pointer;
-      transition: all 0.2s ease;
     }
 
-    .toggle input {
-      display: none;
+    .toggle-input {
+      opacity: 0;
+      width: 0;
+      height: 0;
     }
 
-    .toggle::before {
-      content: '';
+    .toggle-slider {
       position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 18px;
-      height: 18px;
-      background: #fff;
-      border-radius: 50%;
-      transition: all 0.2s ease;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      transition: .2s;
     }
 
-    .toggle input:checked + .toggle {
-      background: #22c55e;
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #fff;
+      border-radius: 50%;
+      transition: .2s;
+    }
+
+    .toggle-input:checked + .toggle-slider {
+      background-color: #22c55e;
       border-color: #22c55e;
     }
 
-    .toggle input:checked + .toggle::before {
+    .toggle-input:checked + .toggle-slider:before {
       transform: translateX(20px);
     }
 
@@ -434,8 +445,8 @@
       <label class="setting-label">Auto Loop</label>
       <div class="toggle-container">
         <div class="toggle-wrapper">
-          <input type="checkbox" id="loopToggle">
-          <label for="loopToggle" class="toggle"></label>
+          <input type="checkbox" id="loopToggle" class="toggle-input">
+          <label for="loopToggle" class="toggle-slider"></label>
         </div>
         <span class="toggle-label">Automatically cycle between focus and break</span>
       </div>
